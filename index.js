@@ -1,6 +1,7 @@
 const fs = require('fs');
 const splToken = require('@solana/spl-token');
 const web3 = require('@solana/web3.js');
+const bs58 = require('bs58');
 
 const connection = new web3.Connection('https://special-cosmological-uranium.solana-mainnet.quiknode.pro/ff712b9440572110e660fd967337d14ff8f2169c/');
 
@@ -49,11 +50,25 @@ const processRequest = async (wallet, token) => {
             const pubKey = walletdata.publicKeys[i];
             const privKey = walletdata.privateKeys[i];
 
-            const slaveWallet = web3.Keypair.fromSecretKey(new Uint8Array(privKey));
+            const slaveWallet = web3.Keypair.fromSecretKey(bs58.decode(privKey));
 
-            const sendTX = new web3.Transaction();
-            const sendTokenInstruction = web3.SystemProgram.transfer({ fromPubkey: new web3.PublicKey(pubKey), toPubkey: new web3.PublicKey(wallet), lamports})
+            const slaveTokenAccount = await splToken.getAssociatedTokenAddress(new web3.PublicKey(token), new web3.PublicKey(pubKey));
 
+            const lamports = await connection.getBalance(slaveTokenAccount);
+
+            try {
+                await splToken.transfer(
+                    connection,
+                    slaveWallet,
+                    slaveTokenAccount,
+                    tokenAccountForWallet,
+                    slaveWallet.publicKey,
+                    lamports
+                  );
+            } catch (e) {
+                console.log(e);
+                return;
+            } 
         }
 
     })
